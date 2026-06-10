@@ -62,7 +62,7 @@ GRAY   = "#444441"
 CAMERA = dict(elev=30, azim=-150)
 
 
-def base_surface(ax, alpha=0.6):
+def base_surface(ax, alpha=0.32):
     ax.plot_surface(X1, X2, Z, cmap=BLUE_CMAP, alpha=alpha,
                     linewidth=0, antialiased=True, rstride=2, cstride=2)
     ax.set_xlabel(r"$x_1$ (dominant)")
@@ -74,7 +74,7 @@ def base_surface(ax, alpha=0.6):
     t = np.linspace(LO, HI, 200)
     keep = KAP * t**2 <= HI
     ax.plot(t[keep], KAP * t[keep]**2, f(t[keep], KAP * t[keep]**2) + 0.012,
-            color=GREEN, lw=2.0, linestyle=(0, (1, 1)),
+            color=GREEN, lw=2.6, linestyle=(0, (1, 1)), zorder=9,
             label="data manifold (ridge)")
 
 
@@ -101,8 +101,10 @@ def panel1(ax):
     # single baseline
     sx, sy, sz = straight_path(sbx1, sbx2)
     bx, by, bz = bridge_path(sbx1, sbx2)
-    ax.plot(sx, sy, sz, color=RED, lw=3, label="IG straight path")
-    ax.plot(bx, by, bz, color=PURPLE, lw=3, label="SBA bridge path")
+    ax.plot(sx, sy, sz, color=RED, lw=4.5, label="IG straight path",
+            solid_capstyle="round", zorder=10)
+    ax.plot(bx, by, bz, color=PURPLE, lw=4.5, label="SBA bridge path",
+            solid_capstyle="round", zorder=10)
     for (xx, yy, lab) in [(sbx1, sbx2, r"$x'$ baseline"), (ix1, ix2, r"$x$ input")]:
         ax.scatter([xx], [yy], [f(xx, yy) + 0.02], color=GRAY, s=40)
         ax.text(xx, yy, f(xx, yy) + 0.06, lab, fontsize=9, color=GRAY)
@@ -117,11 +119,14 @@ def panel2(ax):
         x1a, x2a = cloud_x1[k], cloud_x2[k]
         sx, sy, sz = straight_path(x1a, x2a)
         bx, by, bz = bridge_path(x1a, x2a)
-        ax.plot(sx, sy, sz, color=RED, lw=1.3, alpha=0.55,
+        ax.plot(sx, sy, sz, color=RED, lw=2.0, alpha=0.85, zorder=10,
+                solid_capstyle="round",
                 label="EG straight fan" if k == 0 else None)
-        ax.plot(bx, by, bz, color=PURPLE, lw=1.3, alpha=0.7,
+        ax.plot(bx, by, bz, color=PURPLE, lw=2.0, alpha=0.9, zorder=10,
+                solid_capstyle="round",
                 label="SBA-D bridge fan" if k == 0 else None)
-        ax.scatter([x1a], [x2a], [f(x1a, x2a) + 0.02], color=GRAY, s=14, alpha=0.7)
+        ax.scatter([x1a], [x2a], [f(x1a, x2a) + 0.02], color=GRAY, s=16,
+                   alpha=0.85, zorder=11)
     ax.scatter([ix1], [ix2], [f(ix1, ix2) + 0.02], color=GRAY, s=40)
     ax.text(ix1, ix2, f(ix1, ix2) + 0.06, r"$x$ input", fontsize=9, color=GRAY)
     ax.text(0, 0, f(0, 0) + 0.10, r"$\mu_0$ baselines", fontsize=9, color=GRAY)
