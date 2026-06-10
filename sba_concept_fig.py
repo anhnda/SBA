@@ -59,7 +59,7 @@ RED    = "#A32D2D"   # IG / EG straight
 PURPLE = "#534AB7"   # SBA / SBA-D bridge
 GREEN  = "#0F6E56"   # manifold ridge
 GRAY   = "#444441"
-CAMERA = dict(elev=38, azim=45)
+CAMERA = dict(elev=30, azim=-150)
 
 
 def base_surface(ax, alpha=0.6):
