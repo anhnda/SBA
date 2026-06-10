@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBA conceptual 3D explorer</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         max-width: 900px; margin: 24px auto; padding: 0 16px; color: #2c2c2a; }
+  h1 { font-size: 20px; font-weight: 500; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .btns button { flex: 1; min-width: 200px; padding: 10px; font-size: 14px;
+    border: 1px solid #ccc; border-radius: 8px; background: #fff; cursor: pointer; }
+  .btns button.active { background: #eef; border-color: #88a; }
+  #caption { font-size: 14px; color: #555; line-height: 1.6; min-height: 44px; margin: 8px 0; }
+  #plot { width: 100%; height: 540px; }
+  .note { font-size: 12px; color: #888; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Schrödinger-Bridge Attribution — single vs distributional baselines</h1>
+<div class="btns">
+  <button id="b1" onclick="setStep(1)">single baseline · IG → SBA</button>
+  <button id="b2" onclick="setStep(2)">baseline distribution · EG → SBA-D</button>
+</div>
+<div id="caption"></div>
+<div id="plot"></div>
+<p class="note">Illustrative 2-feature construction
+(f = σ(3·x₁ + 0.6·(x₂ − 0.9·x₁²) − 0.4)), not the ImageNet/ResNet setting.
+Drag to rotate, scroll to zoom.</p>
+
+<script>
+const A=3.0, B=0.6, KAP=0.9, C=-0.4;
+const sig = z => 1/(1+Math.exp(-z));
+const f = (x1,x2) => sig(A*x1 + B*(x2 - KAP*x1*x1) + C);
+
+const N=46, lo=-2.2, hi=2.2;
+const xs=[], ys=[];
+for(let i=0;i<N;i++) xs.push(lo+(hi-lo)*i/(N-1));
+for(let j=0;j<N;j++) ys.push(lo+(hi-lo)*j/(N-1));
+const Z=[];
+for(let j=0;j<N;j++){ const row=[]; for(let i=0;i<N;i++) row.push(f(xs[i],ys[j])); Z.push(row); }
+
+const ix1=1.5, ix2=KAP*ix1*ix1;            // input on ridge
+const sbx1=-C/A, sbx2=KAP*sbx1*sbx1;       // single baseline on ridge
+
+// deterministic pseudo-random cloud around (0,0)
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd=mulberry32(7);
+function gauss(){let u=0,v=0;while(u===0)u=rnd();while(v===0)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const NB=9, cloud=[];
+for(let k=0;k<NB;k++) cloud.push([0.45*gauss(), 0.45*gauss()]);
+
+function straightPath(x1a,x2a){const t=[],u=[],v=[];for(let k=0;k<=60;k++){const a=k/60;const x1=x1a+a*(ix1-x1a);const x2=x2a+a*(ix2-x2a);t.push(x1);u.push(x2);v.push(f(x1,x2)+0.015);}return{t,u,v};}
+function bridgePath(x1a,x2a){const t=[],u=[],v=[];for(let k=0;k<=60;k++){const a=k/60;const x1=x1a+a*(ix1-x1a);const tgt=KAP*x1*x1;const b=Math.pow(a,1.5);const x2=(1-b)*((1-a)*x2a+a*tgt)+b*tgt;t.push(x1);u.push(x2);v.push(f(x1,x2)+0.015);}return{t,u,v};}
+
+const surface = {
+  type:'surface', x:xs, y:ys, z:Z, showscale:false, opacity:0.6,
+  colorscale:[[0,'#E6F1FB'],[0.5,'#378ADD'],[1,'#0C447C']],
+  contours:{z:{show:true,usecolormap:true}}, hoverinfo:'skip'
+};
+function ridgeTrace(){const t=[],u=[],v=[];for(let k=0;k<=60;k++){const x1=lo+(hi-lo)*k/60;const x2=KAP*x1*x1;if(x2>hi)continue;t.push(x1);u.push(x2);v.push(f(x1,x2)+0.012);}return{type:'scatter3d',mode:'lines',x:t,y:u,z:v,line:{color:'#0F6E56',width:6,dash:'dot'},name:'data manifold (ridge)',hoverinfo:'skip'};}
+
+const RED='#A32D2D', PURPLE='#534AB7', GRAY='#444441';
+
+function step1(){
+  const sp=straightPath(sbx1,sbx2), bp=bridgePath(sbx1,sbx2);
+  return [surface, ridgeTrace(),
+    {type:'scatter3d',mode:'lines',x:sp.t,y:sp.u,z:sp.v,line:{color:RED,width:8},name:'IG straight path',hoverinfo:'skip'},
+    {type:'scatter3d',mode:'lines',x:bp.t,y:bp.u,z:bp.v,line:{color:PURPLE,width:8},name:'SBA bridge path',hoverinfo:'skip'},
+    {type:'scatter3d',mode:'markers+text',x:[sbx1,ix1],y:[sbx2,ix2],z:[f(sbx1,sbx2)+0.02,f(ix1,ix2)+0.02],marker:{size:6,color:GRAY},text:["x′ baseline","x input"],textposition:'top center',textfont:{size:12},hoverinfo:'skip',showlegend:false}
+  ];
+}
+function step2(){
+  const data=[surface, ridgeTrace()];
+  cloud.forEach((c,k)=>{
+    const sp=straightPath(c[0],c[1]), bp=bridgePath(c[0],c[1]);
+    data.push({type:'scatter3d',mode:'lines',x:sp.t,y:sp.u,z:sp.v,line:{color:RED,width:3},opacity:0.55,name:'EG straight fan',showlegend:k===0,hoverinfo:'skip'});
+    data.push({type:'scatter3d',mode:'lines',x:bp.t,y:bp.u,z:bp.v,line:{color:PURPLE,width:3},opacity:0.7,name:'SBA-D bridge fan',showlegend:k===0,hoverinfo:'skip'});
+  });
+  data.push({type:'scatter3d',mode:'markers',x:cloud.map(c=>c[0]),y:cloud.map(c=>c[1]),z:cloud.map(c=>f(c[0],c[1])+0.02),marker:{size:3,color:GRAY},name:'μ₀ baselines',hoverinfo:'skip'});
+  data.push({type:'scatter3d',mode:'markers+text',x:[ix1],y:[ix2],z:[f(ix1,ix2)+0.02],marker:{size:6,color:GRAY},text:["x input"],textposition:'top center',textfont:{size:12},hoverinfo:'skip',showlegend:false});
+  return data;
+}
+
+const layout={
+  margin:{l:0,r:0,t:0,b:0}, paper_bgcolor:'rgba(0,0,0,0)', showlegend:true,
+  legend:{x:0,y:1,font:{size:11},bgcolor:'rgba(0,0,0,0)'},
+  scene:{ xaxis:{title:'x₁ (dominant)'}, yaxis:{title:'x₂ (support)'},
+    zaxis:{title:'y = f', range:[0,1.05]},
+    camera:{eye:{x:1.6,y:-1.6,z:0.9}}, aspectratio:{x:1,y:1,z:0.7} }
+};
+const config={displayModeBar:false,responsive:true};
+const captions={
+  1:"One baseline x′ (point baseline). IG draws a single straight line to x, cutting across the off-manifold valley where ∇f is unreliable. SBA replaces it with a bridge that bows onto the green ridge.",
+  2:"A distribution μ₀ of baselines scattered around (0,0). EG averages independent straight chords — many leave the manifold. SBA-D transports the whole cloud along discretized bridge paths that converge onto the ridge at x."
+};
+
+let plotted=false;
+function setStep(s){
+  ['b1','b2'].forEach((id,i)=>document.getElementById(id).classList.toggle('active', i+1===s));
+  document.getElementById('caption').textContent=captions[s];
+  const data = s===1 ? step1() : step2();
+  if(!plotted){ Plotly.newPlot('plot',data,layout,config); plotted=true; }
+  else Plotly.react('plot',data,layout,config);
+}
+setStep(1);
+</script>
+</body>
+</html>
