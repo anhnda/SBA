@@ -44,14 +44,14 @@ Z = f(X1, X2)
 
 # ----- key points -----
 ix1, ix2 = 1.5, KAP * 1.5**2      # input (high output, on ridge)
-sbx1 = -C / A                     # baseline x1 (near-zero output)
-sbx2 = -1.6                       # OFF the ridge (ridge would be KAP*sbx1^2)
+sbx1 = -C / A                     # single baseline on ridge (near-zero output)
+sbx2 = KAP * sbx1**2
 
-# baseline cloud scattered around an off-ridge point in the valley
+# baseline cloud scattered around (0,0)
 rng = np.random.default_rng(0)
 NB = 9
 cloud_x1 = rng.normal(0.0, 0.45, NB)
-cloud_x2 = rng.normal(-1.5, 0.40, NB)
+cloud_x2 = rng.normal(0.0, 0.45, NB)
 
 # ----- styling -----
 BLUE_CMAP = cm.get_cmap("Blues")
@@ -59,7 +59,7 @@ RED    = "#A32D2D"   # IG / EG straight
 PURPLE = "#534AB7"   # SBA / SBA-D bridge
 GREEN  = "#0F6E56"   # manifold ridge
 GRAY   = "#444441"
-CAMERA = dict(elev=42, azim=-120)
+CAMERA = dict(elev=38, azim=45)
 
 
 def base_surface(ax, alpha=0.6):
@@ -86,12 +86,13 @@ def straight_path(x1a, x2a, n=80, dz=0.015):
 
 
 def bridge_path(x1a, x2a, n=80, dz=0.015):
-    # pull onto the ridge early: x1 interpolates, x2 snaps toward KAP*x1^2
+    # bow onto the ridge: interpolate x1 linearly, pull x2 toward ridge KAP*x1^2
     s = np.linspace(0, 1, n)
     px1 = x1a + s * (ix1 - x1a)
     target = KAP * px1**2
-    w = s ** 0.45            # fast approach to the ridge
-    px2 = (1 - w) * x2a + w * target
+    px2 = (1 - s) * x2a + s * target
+    # blend so it leaves the cloud naturally then snaps to ridge
+    px2 = (1 - s**1.5) * px2 + s**1.5 * target
     return px1, px2, f(px1, px2) + dz
 
 
@@ -123,7 +124,7 @@ def panel2(ax):
         ax.scatter([x1a], [x2a], [f(x1a, x2a) + 0.02], color=GRAY, s=14, alpha=0.7)
     ax.scatter([ix1], [ix2], [f(ix1, ix2) + 0.02], color=GRAY, s=40)
     ax.text(ix1, ix2, f(ix1, ix2) + 0.06, r"$x$ input", fontsize=9, color=GRAY)
-    ax.text(0, -1.5, f(0, -1.5) + 0.12, r"$\mu_0$ baselines", fontsize=9, color=GRAY)
+    ax.text(0, 0, f(0, 0) + 0.10, r"$\mu_0$ baselines", fontsize=9, color=GRAY)
     ax.legend(loc="upper left", fontsize=8, framealpha=0.85)
     ax.set_title("(b) baseline distribution:  EG  →  SBA-D", fontsize=11)
 
